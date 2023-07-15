@@ -70,19 +70,26 @@ func (db *txnDB) CommitToTaas(ctx context.Context, table string, keys []string, 
 		return err
 	}
 	defer tx.Rollback()
+	var tryRead int = 0
 	for i, key := range keys {
 		if values[i] == nil { //read
+			tryRead = 0
 			readOpNum++
+		TRYREAD:
 			rowKey := db.getRowKey(table, key)
 			time2 := time.Now()
 			rowData, err := tx.Get(ctx, rowKey)
 			timeLen2 := time.Now().Sub(time2)
 			atomic.AddUint64(&TikvReadLatency, uint64(timeLen2))
-
 			if tikverr.IsErrNotFound(err) {
 				return err
 			} else if rowData == nil {
-				return err
+				if tryRead < 10 {
+					tryRead++
+					goto TRYREAD
+				} else {
+					return err
+				}
 			}
 			sendRow := taas_proto.Row{
 				OpType: taas_proto.OpType_Read,
