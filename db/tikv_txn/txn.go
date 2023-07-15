@@ -47,6 +47,7 @@ type txnDB struct {
 }
 
 func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	time1 := time.Now()
 	tx, err := db.db.Begin()
 	if err != nil {
 		return err
@@ -72,6 +73,8 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 			}
 		}
 	}
+	timeLen := time.Now().Sub(time1)
+	atomic.AddUint64(&taas.TikvTotalLatency, uint64(timeLen))
 	return tx.Commit(ctx)
 }
 
