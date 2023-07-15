@@ -38,8 +38,39 @@ type fDB struct {
 }
 
 func (db *fDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
-	//TODO implement me
-	panic("implement me")
+	var readOpNum, writeOpNum uint64 = 0, 0
+	_, err := db.db.Transact(func(tr fdb.Transaction) (interface{}, error) {
+		time1 := time.Now()
+		for i, key := range keys {
+			readOpNum++
+			if values[i] == nil {
+				rowKey := db.getRowKey(table, key)
+				time2 := time.Now()
+				f := tr.Get(fdb.Key(rowKey))
+				rowData, err := f.Get()
+				if err != nil {
+					return nil, err
+				}
+				timeLen2 := time.Now().Sub(time2)
+				atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
+			} else {
+				writeOpNum++
+				rowKey := db.getRowKey(table, key)
+				rowData, err := db.r.Encode(nil, values[i])
+				f := tr.Get(fdb.Key(rowKey))
+				row, err := f.Get()
+				if err != nil {
+					return nil, err
+				}
+				tr.Set(fdb.Key(rowKey), rowKey)
+			}
+		}
+		timeLen := time.Now().Sub(time1)
+		atomic.AddUint64(&taas.TikvTotalLatency, uint64(timeLen))
+		atomic.AddUint64(&taas.TotalReadCounter, uint64(readOpNum))
+		atomic.AddUint64(&taas.TotalUpdateCounter, uint64(writeOpNum))
+		return
+	})
 }
 
 func createDB(p *properties.Properties) (ycsb.DB, error) {

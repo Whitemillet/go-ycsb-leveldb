@@ -48,6 +48,7 @@ type txnDB struct {
 }
 
 func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	var readOpNum, writeOpNum uint64 = 0, 0
 	time1 := time.Now()
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -56,6 +57,7 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 	defer tx.Rollback()
 	for i, key := range keys {
 		if values[i] == nil {
+			readOpNum++
 			rowKey := db.getRowKey(table, key)
 			time2 := time.Now()
 			_, err := tx.Get(ctx, rowKey)
@@ -65,6 +67,7 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 			timeLen2 := time.Now().Sub(time2)
 			atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
 		} else {
+			writeOpNum++
 			rowData, err := db.r.Encode(nil, values[i])
 			if err != nil {
 				return err
@@ -76,6 +79,8 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 	}
 	timeLen := time.Now().Sub(time1)
 	atomic.AddUint64(&taas.TikvTotalLatency, uint64(timeLen))
+	atomic.AddUint64(&taas.TotalReadCounter, uint64(readOpNum))
+	atomic.AddUint64(&taas.TotalUpdateCounter, uint64(writeOpNum))
 	return tx.Commit(ctx)
 }
 
