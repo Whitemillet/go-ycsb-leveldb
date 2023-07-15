@@ -143,10 +143,14 @@ require (
 replace github.com/apache/thrift => github.com/apache/thrift v0.16.0
 
 //require github.com/Mister-Star/go-ycsb/taas_tikv v0.1.0
-replace github.com/pingcap/go-ycsb/db/taas_hbase => ./taas_hbase
-
-replace github.com/pingcap/go-ycsb/taas_proto => ./taas_proto
-
-replace github.com/pingcap/go-ycsb/taas_tikv => ./taas_tikv
+replace (
+github.com/pingcap/go-ycsb/db/taas_hbase => ./taas_hbase
+github.com/pingcap/go-ycsb/db/taas_proto => ./taas_proto
+github.com/pingcap/go-ycsb/db/taas_hbase_txn => ./taas_hbase_txn
+github.com/pingcap/go-ycsb/db/taas_tikv => ./taas_tikv
+github.com/pingcap/go-ycsb/db/taas_tikv_txn => ./taas_tikv_txn
+github.com/pingcap/go-ycsb/db/tikv => ./tikv
+github.com/pingcap/go-ycsb/db/tikv_txn => ./tikv_txn
+)
 
 go 1.18

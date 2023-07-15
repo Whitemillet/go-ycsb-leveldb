@@ -16,7 +16,10 @@ package tikv
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/go-ycsb/db/taas"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/tikv/client-go/v2/txnkv"
 	"github.com/tikv/client-go/v2/txnkv/transaction"
@@ -45,8 +48,32 @@ type txnDB struct {
 }
 
 func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
-	//TODO implement me
-	panic("implement me")
+	tx, err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i, key := range keys {
+		if values[i] == nil {
+			rowKey := db.getRowKey(table, key)
+			time2 := time.Now()
+			_, err := tx.Get(ctx, rowKey)
+			if err != nil {
+				return err
+			}
+			timeLen2 := time.Now().Sub(time2)
+			atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
+		} else {
+			rowData, err := db.r.Encode(nil, values[i])
+			if err != nil {
+				return err
+			}
+			if err = tx.Set(db.getRowKey(table, key), rowData); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func createTxnDB(p *properties.Properties) (ycsb.DB, error) {

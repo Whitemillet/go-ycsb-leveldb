@@ -42,8 +42,6 @@ import (
 	_ "github.com/pingcap/go-ycsb/db/basic"
 	// Register MySQL database
 	_ "github.com/pingcap/go-ycsb/db/mysql"
-	// Register TiKV database
-	_ "github.com/pingcap/go-ycsb/db/tikv"
 	// Register PostgreSQL database
 	_ "github.com/pingcap/go-ycsb/db/pg"
 	// Register Aerospike database
@@ -78,8 +76,16 @@ import (
 	_ "github.com/pingcap/go-ycsb/db/dynamodb"
 	// Register taas-hbase
 	_ "github.com/pingcap/go-ycsb/db/taas_hbase"
+	// Register taas-hbase
+	_ "github.com/pingcap/go-ycsb/db/taas_hbase_txn"
 	// Register taas-tikv
 	_ "github.com/pingcap/go-ycsb/db/taas_tikv"
+	// Register taas_tikv_txn
+	_ "github.com/pingcap/go-ycsb/db/taas_tikv_txn"
+	// Register taas-hbase
+	_ "github.com/pingcap/go-ycsb/db/tikv"
+	// Register taas-tikv
+	_ "github.com/pingcap/go-ycsb/db/tikv_txn"
 )
 
 var (
