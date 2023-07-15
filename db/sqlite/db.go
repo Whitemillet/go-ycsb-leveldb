@@ -59,6 +59,11 @@ type sqliteDB struct {
 	bufPool *util.BufPool
 }
 
+func (db *sqliteDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (c sqliteCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	d := new(sqliteDB)
 	d.p = p

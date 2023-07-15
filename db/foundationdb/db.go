@@ -37,6 +37,11 @@ type fDB struct {
 	bufPool *util.BufPool
 }
 
+func (db *fDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func createDB(p *properties.Properties) (ycsb.DB, error) {
 	clusterFile := p.GetString(fdbClusterFile, "")
 	database := p.GetString(fdbDatabase, "DB")

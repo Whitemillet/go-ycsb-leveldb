@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	zmq "github.com/pebbe/zmq4"
 	"github.com/pingcap/errors"
-	"io/ioutil"
+	"github.com/pingcap/go-ycsb/db/taas"
 	"log"
 	"reflect"
 	"sync/atomic"
@@ -14,49 +13,27 @@ import (
 	"unsafe"
 )
 
-//#include ""
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/pingcap/go-ycsb/db/taas_proto"
 )
 
-var TaasServerIp = "127.0.0.1"
-var LocalServerIp = "127.0.0.1"
-var HbaseServerIp = "127.0.0.1"
-var OpNum = 10
-
-type TaasTxn struct {
-	GzipedTransaction []byte
-}
-
-var TaasTxnCH = make(chan TaasTxn, 100000)
-var UnPackCH = make(chan string, 100000)
-
-var ChanList []chan string
-var InitOk uint64 = 0
-var atomicCounter uint64 = 0
-var SuccessTransactionCounter, FailedTransactionCounter, TotalTransactionCounter uint64 = 0, 0, 0
-var SuccessReadCounter, FailedReadCounter, TotalReadCounter uint64 = 0, 0, 0
-var SuccessUpdateCounter, FailedUpdateounter, TotalUpdateCounter uint64 = 0, 0, 0
-var TotalLatency, TikvReadLatency, TikvTotalLatency uint64 = 0, 0, 0
-var latency []uint64
-
-func (db *txnDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
-	for InitOk == 0 {
+func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	for taas.InitOk == 0 {
 		time.Sleep(50)
 	}
 
 	t1 := time.Now().UnixNano()
-	txnId := atomic.AddUint64(&atomicCounter, 1) // return new value
-	atomic.AddUint64(&TotalTransactionCounter, 1)
+	txnId := atomic.AddUint64(&taas.CSNCounter, 1) // return new value
+	atomic.AddUint64(&taas.TotalTransactionCounter, 1)
 	txnSendToTaas := taas_proto.Transaction{
 		StartEpoch:  0,
 		CommitEpoch: 5,
 		Csn:         uint64(time.Now().UnixNano()),
-		ServerIp:    TaasServerIp,
+		ServerIp:    taas.TaasServerIp,
 		ServerId:    0,
-		ClientIp:    LocalServerIp,
+		ClientIp:    taas.LocalServerIp,
 		ClientTxnId: txnId,
 		TxnType:     taas_proto.TxnType_ClientTxn,
 		TxnState:    0,
@@ -83,7 +60,7 @@ func (db *txnDB) CommitToTaas(ctx context.Context, table string, keys []string, 
 				res[string(family.Interface().([]uint8))] = value.Interface().([]byte)
 			}
 			timeLen2 := time.Now().Sub(time2)
-			atomic.AddUint64(&TikvReadLatency, uint64(timeLen2))
+			atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
 			if err != nil {
 				return err
 			}
@@ -117,7 +94,7 @@ func (db *txnDB) CommitToTaas(ctx context.Context, table string, keys []string, 
 	//	return err
 	//}
 	timeLen := time.Now().Sub(time1)
-	atomic.AddUint64(&TikvTotalLatency, uint64(timeLen))
+	atomic.AddUint64(&taas.TikvTotalLatency, uint64(timeLen))
 	//fmt.Println("; read op : " + strconv.FormatUint(readOpNum, 10) + ", write op : " + strconv.FormatUint(writeOpNum, 10))
 
 	sendMessage := &taas_proto.Message{
@@ -138,27 +115,27 @@ func (db *txnDB) CommitToTaas(ctx context.Context, table string, keys []string, 
 	GzipedTransaction := bufferBeforeGzip.Bytes()
 	GzipedTransaction = GzipedTransaction
 	//fmt.Println("Send to Taas")
-	TaasTxnCH <- TaasTxn{GzipedTransaction}
+	taas.TaasTxnCH <- taas.TaasTxn{GzipedTransaction}
 
-	result, ok := <-(ChanList[txnId%2048])
+	result, ok := <-(taas.ChanList[txnId%uint64(taas.ClientNum)])
 	//fmt.Println("Receive From Taas")
 	t2 := uint64(time.Now().UnixNano() - t1)
-	TotalLatency += t2
+	taas.TotalLatency += t2
 	//append(latency, t2)
 	//result, ok := "Abort", true
-	atomic.AddUint64(&TotalReadCounter, uint64(readOpNum))
-	atomic.AddUint64(&TotalUpdateCounter, uint64(writeOpNum))
+	atomic.AddUint64(&taas.TotalReadCounter, uint64(readOpNum))
+	atomic.AddUint64(&taas.TotalUpdateCounter, uint64(writeOpNum))
 	if ok {
 		if result != "Commit" {
-			atomic.AddUint64(&FailedReadCounter, uint64(readOpNum))
-			atomic.AddUint64(&FailedUpdateounter, uint64(writeOpNum))
-			atomic.AddUint64(&FailedTransactionCounter, 1)
+			atomic.AddUint64(&taas.FailedReadCounter, uint64(readOpNum))
+			atomic.AddUint64(&taas.FailedUpdateounter, uint64(writeOpNum))
+			atomic.AddUint64(&taas.FailedTransactionCounter, 1)
 			//fmt.Println("Commit Failed")
 			return errors.New("txn conflict handle failed")
 		}
-		atomic.AddUint64(&SuccessReadCounter, uint64(readOpNum))
-		atomic.AddUint64(&SuccessUpdateCounter, uint64(writeOpNum))
-		atomic.AddUint64(&SuccessTransactionCounter, 1)
+		atomic.AddUint64(&taas.SuccessReadCounter, uint64(readOpNum))
+		atomic.AddUint64(&taas.SuccessUpdateCounter, uint64(writeOpNum))
+		atomic.AddUint64(&taas.SuccessTransactionCounter, 1)
 		//fmt.Println("Commit Success")
 	} else {
 		fmt.Println("txn_bak.go 481")
@@ -166,108 +143,4 @@ func (db *txnDB) CommitToTaas(ctx context.Context, table string, keys []string, 
 		return err
 	}
 	return nil
-}
-
-func SendTxnToTaas() {
-	socket, _ := zmq.NewSocket(zmq.PUSH)
-	err := socket.SetSndbuf(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.SetRcvbuf(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.SetSndhwm(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.SetRcvhwm(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.Connect("tcp://" + TaasServerIp + ":5551")
-	if err != nil {
-		fmt.Println("taas.go 97")
-		log.Fatal(err)
-	}
-	fmt.Println("连接Taas Send " + TaasServerIp)
-	for {
-		value, ok := <-TaasTxnCH
-		if ok {
-			_, err := socket.Send(string(value.GzipedTransaction), 0)
-			//fmt.Println("taas send thread")
-			if err != nil {
-				return
-			}
-		} else {
-			fmt.Println("taas.go 109")
-			log.Fatal(ok)
-		}
-	}
-}
-
-func ListenFromTaas() {
-	socket, err := zmq.NewSocket(zmq.PULL)
-	err = socket.SetSndbuf(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.SetRcvbuf(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.SetSndhwm(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.SetRcvhwm(10000000)
-	if err != nil {
-		return
-	}
-	err = socket.Bind("tcp://*:5552")
-	fmt.Println("连接Taas Listen")
-	if err != nil {
-		log.Fatal(err)
-	}
-	for {
-		taasReply, err := socket.Recv(0)
-		if err != nil {
-			fmt.Println("taas.go 115")
-			log.Fatal(err)
-		}
-		UnPackCH <- taasReply
-	}
-}
-
-func UGZipBytes(in []byte) []byte {
-	reader, err := gzip.NewReader(bytes.NewReader(in))
-	if err != nil {
-		var out []byte
-		return out
-	}
-	defer reader.Close()
-	out, _ := ioutil.ReadAll(reader)
-	return out
-
-}
-
-func UnPack() {
-	for {
-		taasReply, ok := <-UnPackCH
-		if ok {
-			UnGZipedReply := UGZipBytes([]byte(taasReply))
-			testMessage := &taas_proto.Message{}
-			err := proto.Unmarshal(UnGZipedReply, testMessage)
-			if err != nil {
-				fmt.Println("taas.go 142")
-				log.Fatal(err)
-			}
-			replyMessage := testMessage.GetReplyTxnResultToClient()
-			ChanList[replyMessage.ClientTxnId%2048] <- replyMessage.GetTxnState().String()
-		} else {
-			fmt.Println("taas.go 148")
-			log.Fatal(ok)
-		}
-	}
 }

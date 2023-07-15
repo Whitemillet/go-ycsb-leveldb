@@ -30,7 +30,7 @@ type dynamodbWrapper struct {
 	command            string
 }
 
-func (r *dynamodbWrapper) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (r *dynamodbWrapper) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }

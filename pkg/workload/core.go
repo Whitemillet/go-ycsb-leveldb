@@ -429,7 +429,7 @@ func (c *Core) DoTransactionOps(ctx context.Context, db ycsb.DB, state *CoreStat
 		}
 	}
 
-	return db.CommitToTaas(ctx, c.Table, keys, values)
+	return db.TxnCommit(ctx, c.Table, keys, values)
 }
 
 // DoBatchTransaction implements the Workload DoBatchTransaction interface

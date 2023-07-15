@@ -79,6 +79,11 @@ type rocksDB struct {
 
 type contextKey string
 
+func (db *rocksDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (c rocksDBCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	dir := p.GetString(rocksdbDir, "/tmp/rocksdb")
 

@@ -1,4 +1,4 @@
-package taas_tikv
+package taas_hbase_txn
 
 import (
 	"bytes"
@@ -6,18 +6,16 @@ import (
 	"fmt"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-ycsb/db/taas"
-	tikverr "github.com/tikv/client-go/v2/error"
 	"log"
+	"reflect"
 	"sync/atomic"
 	"time"
 	"unsafe"
 )
 
-//#include ""
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
-
 	"github.com/pingcap/go-ycsb/db/taas_proto"
 )
 
@@ -25,6 +23,7 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 	for taas.InitOk == 0 {
 		time.Sleep(50)
 	}
+
 	t1 := time.Now().UnixNano()
 	txnId := atomic.AddUint64(&taas.CSNCounter, 1) // return new value
 	atomic.AddUint64(&taas.TotalTransactionCounter, 1)
@@ -42,36 +41,33 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 
 	var readOpNum, writeOpNum uint64 = 0, 0
 	time1 := time.Now()
-	tx, err := db.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var tryRead int = 0
 	for i, key := range keys {
 		if values[i] == nil { //read
-			tryRead = 0
 			readOpNum++
-		TRYREAD:
 			rowKey := db.getRowKey(table, key)
 			time2 := time.Now()
-			rowData, err := tx.Get(ctx, rowKey)
-			timeLen2 := time.Now().Sub(time2)
-			atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
-			if tikverr.IsErrNotFound(err) {
+			rowData, err := HBaseConncetion[txnId].Get(ctx, []byte(table), &TGet{Row: []byte(key)})
+			if err != nil {
 				return err
 			} else if rowData == nil {
-				if tryRead < 10 {
-					tryRead++
-					goto TRYREAD
-				} else {
-					return err
-				}
+				return errors.New("txn read failed")
+			}
+			res := make(map[string][]byte)
+			for _, column := range rowData.ColumnValues {
+				c := reflect.ValueOf(column).Elem()
+				family := c.Field(0)
+				value := c.Field(2)
+				res[string(family.Interface().([]uint8))] = value.Interface().([]byte)
+			}
+			timeLen2 := time.Now().Sub(time2)
+			atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
+			if err != nil {
+				return err
 			}
 			sendRow := taas_proto.Row{
 				OpType: taas_proto.OpType_Read,
 				Key:    *(*[]byte)(unsafe.Pointer(&rowKey)),
-				Data:   rowData,
+				Data:   []byte(res["entire"]),
 				Csn:    0,
 			}
 			txnSendToTaas.Row = append(txnSendToTaas.Row, &sendRow)
@@ -94,9 +90,9 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 		}
 
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return err
-	}
+	//if err = tx.Commit(ctx); err != nil {
+	//	return err
+	//}
 	timeLen := time.Now().Sub(time1)
 	atomic.AddUint64(&taas.TikvTotalLatency, uint64(timeLen))
 	//fmt.Println("; read op : " + strconv.FormatUint(readOpNum, 10) + ", write op : " + strconv.FormatUint(writeOpNum, 10))
@@ -108,7 +104,7 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 	sendBuffer, _ := proto.Marshal(sendMessage)
 	bufferBeforeGzip.Reset()
 	gw := gzip.NewWriter(&bufferBeforeGzip)
-	_, err = gw.Write(sendBuffer)
+	_, err := gw.Write(sendBuffer)
 	if err != nil {
 		return err
 	}
@@ -118,6 +114,7 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 	}
 	GzipedTransaction := bufferBeforeGzip.Bytes()
 	GzipedTransaction = GzipedTransaction
+	//fmt.Println("Send to Taas")
 	taas.TaasTxnCH <- taas.TaasTxn{GzipedTransaction}
 
 	result, ok := <-(taas.ChanList[txnId%uint64(taas.ClientNum)])

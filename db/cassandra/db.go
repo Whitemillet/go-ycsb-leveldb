@@ -57,7 +57,7 @@ type cassandraDB struct {
 	fieldNames []string
 }
 
-func (db *cassandraDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (db *cassandraDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }

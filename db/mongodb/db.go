@@ -38,11 +38,10 @@ type mongoDB struct {
 	db  *mongo.Database
 }
 
-func (m *mongoDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (m *mongoDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }
-
 func (m *mongoDB) Close() error {
 	return m.cli.Disconnect(context.Background())
 }

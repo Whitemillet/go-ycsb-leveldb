@@ -20,7 +20,7 @@ type aerospikedb struct {
 	ns     string
 }
 
-func (adb *aerospikedb) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (adb *aerospikedb) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }

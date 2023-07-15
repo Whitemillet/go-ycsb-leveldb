@@ -1,4 +1,4 @@
-package taas_tikv
+package taas_tikv_txn
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"unsafe"
 )
 
-//#include ""
 import (
 	"context"
 	"github.com/golang/protobuf/proto"
