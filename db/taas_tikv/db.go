@@ -33,6 +33,7 @@ const (
 type taas_tikvCreator struct {
 }
 
+// 接收properties返回对应类型的db
 func (c taas_tikvCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	config.UpdateGlobal(func(c *config.Config) {
 		c.TiKVClient.GrpcConnectionCount = p.GetUint(tikvConnCount, 128)
