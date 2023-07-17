@@ -32,6 +32,7 @@ import (
 type taasHbaseCreator struct {
 }
 
+// 实现create方法，调用createTxnDB传入配置
 func (c taasHbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	//config.UpdateGlobal(func(c *config.Config) {
 	//	c.TiKVClient.GrpcConnectionCount = p.GetUint(tikvConnCount, 128)
@@ -52,6 +53,7 @@ func (c taasHbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	//}
 }
 
+// 以便在 ycsb 包中使用
 func init() {
 	ycsb.RegisterDBCreator("taas_hbase", taasHbaseCreator{})
 }

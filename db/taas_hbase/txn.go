@@ -2,21 +2,20 @@ package taas_hbase
 
 import (
 	"fmt"
-	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/pingcap/go-ycsb/db/taas"
-	"github.com/tikv/client-go/v2/txnkv/transaction"
 	"net"
 	"reflect"
 	"sync/atomic"
 
+	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/pingcap/go-ycsb/db/taas"
+	"github.com/tikv/client-go/v2/txnkv/transaction"
+
+	"context"
+	"strconv"
+
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/util"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
-	"strconv"
-)
-
-import (
-	"context"
 )
 
 //const (
@@ -43,6 +42,7 @@ type txnDB struct {
 	protocolFactory *thrift.TProtocolFactory
 }
 
+// 记录连接的client
 var HBaseConncetion []*THBaseServiceClient
 
 func createTxnDB(p *properties.Properties) (ycsb.DB, error) {

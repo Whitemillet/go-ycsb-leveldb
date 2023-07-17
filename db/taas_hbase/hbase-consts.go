@@ -21,7 +21,7 @@ var _ = context.Background
 var _ = time.Now
 var _ = bytes.Equal
 
-// (needed by validator.)
+// (needed by validator.) 验证器需要
 var _ = strings.Contains
 var _ = regexp.MatchString
 
