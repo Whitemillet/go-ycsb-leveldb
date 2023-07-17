@@ -19,7 +19,7 @@ import (
 
 //#include ""
 
-// 提交，ctx，table，key，value
+// 提交，ctx，table，key，value，连接上taas？
 func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	for taas.InitOk == 0 {
 		time.Sleep(50)

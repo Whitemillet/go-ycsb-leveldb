@@ -147,19 +147,23 @@ func (db *txnDB) BatchRead(ctx context.Context, table string, keys []string, fie
 	return rowValues, nil
 }
 
+// 扫描DB中指定表的数据，从startKey开始扫描，返回count行数据
 func (db *txnDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
+	// begin获取tx
 	tx, err := db.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
+	// 获取iterator
 	it, err := tx.Iter(db.getRowKey(table, startKey), nil)
 	if err != nil {
 		return nil, err
 	}
 	defer it.Close()
 
+	// 初始化rows，追加value
 	rows := make([][]byte, 0, count)
 	for i := 0; i < count && it.Valid(); i++ {
 		value := append([]byte{}, it.Value()...)
@@ -169,10 +173,12 @@ func (db *txnDB) Scan(ctx context.Context, table string, startKey string, count 
 		}
 	}
 
+	// commit提交tx
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
+	// 值存入
 	res := make([]map[string][]byte, len(rows))
 	for i, row := range rows {
 		if row == nil {
@@ -286,13 +292,16 @@ func (db *txnDB) BatchUpdate(ctx context.Context, table string, keys []string, v
 	return nil
 }
 
+// 模拟数据插入，table，key，value
 func (db *txnDB) Insert(ctx context.Context, table string, key string, values map[string][]byte) error {
 	// Simulate TiDB data
 	buf := db.bufPool.Get()
+	// 结束后调用 将buf放回bufPool
 	defer func() {
 		db.bufPool.Put(buf)
 	}()
 
+	// 获取buf tx，set
 	buf, err := db.r.Encode(buf, values)
 	if err != nil {
 		return err
@@ -312,13 +321,16 @@ func (db *txnDB) Insert(ctx context.Context, table string, key string, values ma
 	return tx.Commit(ctx)
 }
 
+// 批插入，table，keys，values
 func (db *txnDB) BatchInsert(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+	// 获取tx
 	tx, err := db.beginTxn()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
+	// i为编号，key为键 取对应value组成rowData插入
 	for i, key := range keys {
 		rowData, err := db.r.Encode(nil, values[i])
 		if err != nil {
@@ -331,6 +343,7 @@ func (db *txnDB) BatchInsert(ctx context.Context, table string, keys []string, v
 	return tx.Commit(ctx)
 }
 
+// 删除 table对应key
 func (db *txnDB) Delete(ctx context.Context, table string, key string) error {
 	tx, err := db.beginTxn()
 	if err != nil {
@@ -347,6 +360,7 @@ func (db *txnDB) Delete(ctx context.Context, table string, key string) error {
 	return tx.Commit(ctx)
 }
 
+// 批量删除
 func (db *txnDB) BatchDelete(ctx context.Context, table string, keys []string) error {
 	tx, err := db.beginTxn()
 	if err != nil {
