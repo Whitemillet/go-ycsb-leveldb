@@ -14,18 +14,18 @@
 package taas_tikv
 
 import (
+	"context"
 	"fmt"
+	"strings"
+
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/util"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
 	"github.com/tikv/client-go/v2/txnkv"
 	"github.com/tikv/client-go/v2/txnkv/transaction"
-	"strings"
-)
 
-//#include ""
-import (
-	"context"
+	//#include ""
+
 	tikverr "github.com/tikv/client-go/v2/error"
 )
 
@@ -47,14 +47,16 @@ type txnDB struct {
 }
 
 func createTxnDB(p *properties.Properties) (ycsb.DB, error) {
+	// tikvPD 键对应的值，并将其赋值给 pdAddr 变量。如果没有，则使用默认值
 	pdAddr := p.GetString(tikvPD, "127.0.0.1:2379")
 
 	fmt.Println("taas_tikv createTxnDB")
+	// 创建客户端db
 	db, err := txnkv.NewClient(strings.Split(pdAddr, ","))
 	if err != nil {
 		return nil, err
 	}
-
+	// 配置
 	cfg := txnConfig{
 		asyncCommit: p.GetBool(tikvAsyncCommit, true),
 		onePC:       p.GetBool(tikvOnePC, true),
@@ -71,6 +73,7 @@ func createTxnDB(p *properties.Properties) (ycsb.DB, error) {
 	}, nil
 }
 
+// 关闭客户端
 func (db *txnDB) Close() error {
 	return db.db.Close()
 }
@@ -87,6 +90,7 @@ func (db *txnDB) getRowKey(table string, key string) []byte {
 }
 
 func (db *txnDB) beginTxn() (*transaction.KVTxn, error) {
+	// 开始事务设置
 	txn, err := db.db.Begin()
 	if err != nil {
 		return nil, err
@@ -98,6 +102,7 @@ func (db *txnDB) beginTxn() (*transaction.KVTxn, error) {
 	return txn, err
 }
 
+// 单个读取，ctx，table，key，fields返回map{family, value}
 func (db *txnDB) Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error) {
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -115,10 +120,10 @@ func (db *txnDB) Read(ctx context.Context, table string, key string, fields []st
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-
 	return db.r.Decode(row, fields)
 }
 
+// 批读取，keys[]
 func (db *txnDB) BatchRead(ctx context.Context, table string, keys []string, fields []string) ([]map[string][]byte, error) {
 	tx, err := db.db.Begin()
 	if err != nil {
