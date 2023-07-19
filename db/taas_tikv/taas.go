@@ -117,11 +117,9 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 		return err
 	}
 	GzipedTransaction := bufferBeforeGzip.Bytes()
-	GzipedTransaction = GzipedTransaction
-	taas.TaasTxnCH <- taas.TaasTxn{GzipedTransaction}
+	taas.TaasTxnCH <- taas.TaasTxn{GzipedTransaction: GzipedTransaction}
 
 	result, ok := <-(taas.ChanList[txnId%uint64(taas.ClientNum)])
-	//fmt.Println("Receive From Taas")
 	t2 := uint64(time.Now().UnixNano() - t1)
 	taas.TotalLatency += t2
 	//append(latency, t2)
