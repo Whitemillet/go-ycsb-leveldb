@@ -52,8 +52,6 @@ func SetConfig(globalProps *properties.Properties) {
 	ClientNum = globalProps.GetInt("threadcount", 64)
 	UnPackNum = globalProps.GetInt("unpackNum", 16)
 
-	TaasServerIp = globalProps.GetString("taasServerIp", "")
-
 	fmt.Println("localServerIp : " + LocalServerIp + ", taasServerIp : " + TaasServerIp + ", hbaseServerIp " + HbaseServerIp + " ;")
 
 }
