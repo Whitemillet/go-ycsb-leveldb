@@ -3,7 +3,9 @@ package taas_tikv
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
+	"io/ioutil"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-ycsb/db/taas"
 	tikverr "github.com/tikv/client-go/v2/error"
@@ -11,18 +13,17 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
-)
 
-//#include ""
-import (
-	"context"
 	"github.com/golang/protobuf/proto"
-
+	zmq "github.com/pebbe/zmq4"
+	"github.com/pingcap/errors"
 	"github.com/pingcap/go-ycsb/db/taas_proto"
+	tikverr "github.com/tikv/client-go/v2/error"
 )
 
 func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	for taas.InitOk == 0 {
+
 		time.Sleep(50)
 	}
 	t1 := time.Now().UnixNano()

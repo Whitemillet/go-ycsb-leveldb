@@ -32,7 +32,15 @@ import (
 type taasHbaseCreator struct {
 }
 
-func (c taasHbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
+func (c taas_hbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
+	config.UpdateGlobal(func(c *config.Config) {
+		c.TiKVClient.GrpcConnectionCount = p.GetUint(tikvConnCount, 128)
+		c.TiKVClient.MaxBatchSize = p.GetUint(tikvBatchSize, 128)
+	})
+  
+	tp := p.GetString(tikvType, "txn")
+  
+  //func (c taasHbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	//config.UpdateGlobal(func(c *config.Config) {
 	//	c.TiKVClient.GrpcConnectionCount = p.GetUint(tikvConnCount, 128)
 	//	c.TiKVClient.MaxBatchSize = p.GetUint(tikvBatchSize, 128)
