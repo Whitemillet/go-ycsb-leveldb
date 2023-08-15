@@ -14,29 +14,18 @@
 package taas_tikv
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"strings"
-	"sync/atomic"
-
-	"log"
-	"strconv"
-	"unsafe"
-
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/util"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
 	"github.com/tikv/client-go/v2/txnkv"
 	"github.com/tikv/client-go/v2/txnkv/transaction"
-	"time"
+	"strings"
 )
 
 //#include ""
 import (
 	"context"
-	"github.com/golang/protobuf/proto"
-	"github.com/pingcap/go-ycsb/db/taas_proto"
 	tikverr "github.com/tikv/client-go/v2/error"
 )
 
@@ -72,22 +61,6 @@ func createTxnDB(p *properties.Properties) (ycsb.DB, error) {
 	}
 
 	bufPool := util.NewBufPool()
-
-	TaasServerIp = p.GetString("taasServerIp", "")
-	LocalServerIp = p.GetString("localServerIp", "")
-	OpNum = p.GetInt("opNum", 10)
-	for i := 0; i < 2048; i++ {
-		ChanList = append(ChanList, make(chan string, 100000))
-	}
-
-	go SendTxnToTaas()
-	go ListenFromTaas()
-	for i := 0; i < 32; i++ {
-		go UnPack()
-	}
-	InitOk = 1
-
-	fmt.Println("taas_tikv client.go Init OK")
 
 	return &txnDB{
 		db: db,
@@ -213,79 +186,81 @@ func (db *txnDB) Scan(ctx context.Context, table string, startKey string, count 
 }
 
 func (db *txnDB) Update(ctx context.Context, table string, key string, values map[string][]byte) error {
-	for InitOk == 0 {
-		time.Sleep(50)
-	}
-	txnId := atomic.AddUint64(&atomicCounter, 1) // return new value
-	atomic.AddUint64(&TotalTransactionCounter, 1)
-
-	rowKey := db.getRowKey(table, key)
-	var bufferBeforeGzip bytes.Buffer
-	clientIP := LocalServerIp
-	txnSendToTaas := taas_proto.Transaction{
-		//Row:         {},
-		StartEpoch:  0,
-		CommitEpoch: 5,
-		Csn:         uint64(time.Now().UnixNano()),
-		ServerIp:    TaasServerIp,
-		ServerId:    0,
-		ClientIp:    clientIP,
-		ClientTxnId: txnId,
-		TxnType:     taas_proto.TxnType_ClientTxn,
-		TxnState:    0,
-	}
-	updateKey := rowKey
-	sendRow := taas_proto.Row{
-		OpType: taas_proto.OpType_Update,
-		Key:    *(*[]byte)(unsafe.Pointer(&updateKey)),
-	}
-	for field, value := range values {
-		idColumn, _ := strconv.ParseUint(string(field[5]), 10, 32)
-		updatedColumn := taas_proto.Column{
-			Id:    uint32(idColumn),
-			Value: value,
-		}
-		sendRow.Column = append(sendRow.Column, &updatedColumn)
-	}
-	txnSendToTaas.Row = append(txnSendToTaas.Row, &sendRow)
-	sendMessage := &taas_proto.Message{
-		Type: &taas_proto.Message_Txn{Txn: &txnSendToTaas},
-	}
-	sendBuffer, _ := proto.Marshal(sendMessage)
-	bufferBeforeGzip.Reset()
-	gw := gzip.NewWriter(&bufferBeforeGzip)
-	_, err := gw.Write(sendBuffer)
-	if err != nil {
-		return err
-	}
-	err = gw.Close()
-	if err != nil {
-		return err
-	}
-	GzipedTransaction := bufferBeforeGzip.Bytes()
-	TaasTxnCH <- TaasTxn{GzipedTransaction}
-
-	result, ok := <-(ChanList[txnId%2048])
-	if ok {
-		if result != "Commit" {
-			atomic.AddUint64(&FailedTransactionCounter, 1)
-			return err
-		}
-		atomic.AddUint64(&SuccessTransactionCounter, 1)
-	} else {
-		fmt.Println("txn_bak.go 481")
-		log.Fatal(ok)
-		return err
-	}
-	return nil
+	panic("not implement yet")
+	//for InitOk == 0 {
+	//	time.Sleep(50)
+	//}
+	//txnId := atomic.AddUint64(&atomicCounter, 1) // return new value
+	//atomic.AddUint64(&TotalTransactionCounter, 1)
+	//
+	//rowKey := db.getRowKey(table, key)
+	//var bufferBeforeGzip bytes.Buffer
+	//clientIP := LocalServerIp
+	//txnSendToTaas := taas_proto.Transaction{
+	//	//Row:         {},
+	//	StartEpoch:  0,
+	//	CommitEpoch: 5,
+	//	Csn:         uint64(time.Now().UnixNano()),
+	//	ServerIp:    TaasServerIp,
+	//	ServerId:    0,
+	//	ClientIp:    clientIP,
+	//	ClientTxnId: txnId,
+	//	TxnType:     taas_proto.TxnType_ClientTxn,
+	//	TxnState:    0,
+	//}
+	//updateKey := rowKey
+	//sendRow := taas_proto.Row{
+	//	OpType: taas_proto.OpType_Update,
+	//	Key:    *(*[]byte)(unsafe.Pointer(&updateKey)),
+	//}
+	//for field, value := range values {
+	//	idColumn, _ := strconv.ParseUint(string(field[5]), 10, 32)
+	//	updatedColumn := taas_proto.Column{
+	//		Id:    uint32(idColumn),
+	//		Value: value,
+	//	}
+	//	sendRow.Column = append(sendRow.Column, &updatedColumn)
+	//}
+	//txnSendToTaas.Row = append(txnSendToTaas.Row, &sendRow)
+	//sendMessage := &taas_proto.Message{
+	//	Type: &taas_proto.Message_Txn{Txn: &txnSendToTaas},
+	//}
+	//sendBuffer, _ := proto.Marshal(sendMessage)
+	//bufferBeforeGzip.Reset()
+	//gw := gzip.NewWriter(&bufferBeforeGzip)
+	//_, err := gw.Write(sendBuffer)
+	//if err != nil {
+	//	return err
+	//}
+	//err = gw.Close()
+	//if err != nil {
+	//	return err
+	//}
+	//GzipedTransaction := bufferBeforeGzip.Bytes()
+	//TaasTxnCH <- TaasTxn{GzipedTransaction}
+	//
+	//result, ok := <-(ChanList[txnId%2048])
+	//if ok {
+	//	if result != "Commit" {
+	//		atomic.AddUint64(&FailedTransactionCounter, 1)
+	//		return err
+	//	}
+	//	atomic.AddUint64(&SuccessTransactionCounter, 1)
+	//} else {
+	//	fmt.Println("txn_bak.go 481")
+	//	log.Fatal(ok)
+	//	return err
+	//}
+	//return nil
 }
 
 func (db *txnDB) BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
-	txnId := atomic.AddUint64(&atomicCounter, 1) // return new value
-	atomic.AddUint64(&TotalTransactionCounter, 1)
-	for i, key := range keys {
-		fmt.Println(string(txnId) + ", i:" + string(i) + ", key:" + key)
-	}
+	panic("not implement yet")
+	//txnId := atomic.AddUint64(&atomicCounter, 1) // return new value
+	//atomic.AddUint64(&TotalTransactionCounter, 1)
+	//for i, key := range keys {
+	//	fmt.Println(string(txnId) + ", i:" + string(i) + ", key:" + key)
+	//}
 	//tx, err := db.beginTxn()
 	//if err != nil {
 	//	return err

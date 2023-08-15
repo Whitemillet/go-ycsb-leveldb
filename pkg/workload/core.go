@@ -361,18 +361,86 @@ func (c *core) DoTransaction(ctx context.Context, db ycsb.DB) error {
 	r := state.r
 
 	operation := operationType(c.operationChooser.Next(r))
-	switch operation {
+  switch operation {
 	case read:
-		return c.doTransactionRead(ctx, db, state)
+		//return c.DoTransactionRead(ctx, db, state)
+		return c.DoTransactionOps(ctx, db, state, read)
 	case update:
-		return c.doTransactionUpdate(ctx, db, state)
+		return c.DoTransactionOps(ctx, db, state, update)
+		//return c.DoTransactionUpdate(ctx, db, state)
 	case insert:
-		return c.doTransactionInsert(ctx, db, state)
+		return c.DoTransactionInsert(ctx, db, state)
 	case scan:
-		return c.doTransactionScan(ctx, db, state)
+		return c.DoTransactionScan(ctx, db, state)
 	default:
-		return c.doTransactionReadModifyWrite(ctx, db, state)
+		return c.DoTransactionReadModifyWrite(ctx, db, state)
 	}
+// 	switch operation {
+// 	case read:
+// 		return c.doTransactionRead(ctx, db, state)
+// 	case update:
+// 		return c.doTransactionUpdate(ctx, db, state)
+// 	case insert:
+// 		return c.doTransactionInsert(ctx, db, state)
+// 	case scan:
+// 		return c.doTransactionScan(ctx, db, state)
+// 	default:
+// 		return c.doTransactionReadModifyWrite(ctx, db, state)
+// 	}
+	return nil
+}
+
+var OpNum = 10
+
+var TotalReadCounter uint64 = 0
+var TotalUpdateCounter uint64 = 0
+
+func (c *Core) DoTransactionOps(ctx context.Context, db ycsb.DB, state *CoreState, first_op OperationType) error {
+	//fmt.Println("taas_tikv DoTransactionOps")
+	keys := make([]string, OpNum)
+	values := make([]map[string][]byte, OpNum)
+	var readOpNum, writeOpNum uint64 = 0, 0
+	keyNum1 := c.NextKeyNum(state)
+	keyName1 := c.BuildKeyName(keyNum1)
+	keys[0] = keyName1
+	if first_op == read {
+		values[0] = nil
+		readOpNum++
+		atomic.AddUint64(&TotalReadCounter, 1)
+	} else {
+		values[0] = c.BuildValues(state, keyName1)
+		writeOpNum++
+		atomic.AddUint64(&TotalUpdateCounter, 1)
+	}
+	for i := 1; i < OpNum; i++ {
+		state1 := ctx.Value(StateKey).(*CoreState)
+		r := state1.R
+		operation := OperationType(c.OperationChooser.Next(r))
+		switch operation {
+		case read:
+			keyNum := c.NextKeyNum(state1)
+			keyName := c.BuildKeyName(keyNum)
+			keys[i] = keyName
+			values[i] = nil
+			readOpNum++
+			atomic.AddUint64(&TotalReadCounter, 1)
+			break
+		case update:
+			keyNum := c.NextKeyNum(state1)
+			keyName := c.BuildKeyName(keyNum)
+			keys[i] = keyName
+			values[i] = c.BuildValues(state1, keyName)
+			writeOpNum++
+			atomic.AddUint64(&TotalUpdateCounter, 1)
+			break
+		default:
+			fmt.Printf("other operation type %d\n", operation)
+			break
+		}
+	}
+
+	return db.TxnCommit(ctx, c.Table, keys, values)
+
 }
 
 // DoBatchTransaction implements the Workload DoBatchTransaction interface

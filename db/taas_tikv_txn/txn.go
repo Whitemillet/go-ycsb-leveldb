@@ -11,23 +11,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tikv
+package taas_tikv_txn
 
 import (
-	"context"
 	"fmt"
-	"github.com/pingcap/go-ycsb/db/taas"
-	"strings"
-	"sync/atomic"
-	"time"
-
-	"github.com/tikv/client-go/v2/txnkv"
-	"github.com/tikv/client-go/v2/txnkv/transaction"
-
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/util"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
-	tikverr "github.com/tikv/client-go/v2/error"
+	"github.com/tikv/client-go/v2/txnkv"
+	"github.com/tikv/client-go/v2/txnkv/transaction"
+	"strings"
+)
+
+//#include ""
+import (
+	"context"
 )
 
 const (
@@ -47,43 +45,6 @@ type txnDB struct {
 	cfg     *txnConfig
 }
 
-func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
-	var readOpNum, writeOpNum uint64 = 0, 0
-	time1 := time.Now()
-	tx, err := db.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	for i, key := range keys {
-		if values[i] == nil {
-			readOpNum++
-			rowKey := db.getRowKey(table, key)
-			time2 := time.Now()
-			_, err := tx.Get(ctx, rowKey)
-			if err != nil {
-				return err
-			}
-			timeLen2 := time.Now().Sub(time2)
-			atomic.AddUint64(&taas.TikvReadLatency, uint64(timeLen2))
-		} else {
-			writeOpNum++
-			rowData, err := db.r.Encode(nil, values[i])
-			if err != nil {
-				return err
-			}
-			if err = tx.Set(db.getRowKey(table, key), rowData); err != nil {
-				return err
-			}
-		}
-	}
-	timeLen := time.Now().Sub(time1)
-	atomic.AddUint64(&taas.TikvTotalLatency, uint64(timeLen))
-	atomic.AddUint64(&taas.TotalReadCounter, uint64(readOpNum))
-	atomic.AddUint64(&taas.TotalUpdateCounter, uint64(writeOpNum))
-	return tx.Commit(ctx)
-}
-
 func createTxnDB(p *properties.Properties) (ycsb.DB, error) {
 	pdAddr := p.GetString(tikvPD, "127.0.0.1:2379")
 	db, err := txnkv.NewClient(strings.Split(pdAddr, ","))
@@ -99,7 +60,8 @@ func createTxnDB(p *properties.Properties) (ycsb.DB, error) {
 	bufPool := util.NewBufPool()
 
 	return &txnDB{
-		db:      db,
+		db: db,
+		//db:      nil,
 		r:       util.NewRowCodec(p),
 		bufPool: bufPool,
 		cfg:     &cfg,
@@ -134,152 +96,120 @@ func (db *txnDB) beginTxn() (*transaction.KVTxn, error) {
 }
 
 func (db *txnDB) Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error) {
-	tx, err := db.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	row, err := tx.Get(ctx, db.getRowKey(table, key))
-	if tikverr.IsErrNotFound(err) {
-		return nil, nil
-	} else if row == nil {
-		return nil, err
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return db.r.Decode(row, fields)
+	panic("calling error, should use func TxnCommit")
+	//tx, err := db.db.Begin()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer tx.Rollback()
+	//
+	//row, err := tx.Get(ctx, db.getRowKey(table, key))
+	//if tikverr.IsErrNotFound(err) {
+	//	return nil, nil
+	//} else if row == nil {
+	//	return nil, err
+	//}
+	//
+	//if err = tx.Commit(ctx); err != nil {
+	//	return nil, err
+	//}
+	//
+	//return db.r.Decode(row, fields)
 }
 
 func (db *txnDB) BatchRead(ctx context.Context, table string, keys []string, fields []string) ([]map[string][]byte, error) {
-	tx, err := db.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	rowValues := make([]map[string][]byte, len(keys))
-	for i, key := range keys {
-		value, err := tx.Get(ctx, db.getRowKey(table, key))
-		if tikverr.IsErrNotFound(err) || value == nil {
-			rowValues[i] = nil
-		} else {
-			rowValues[i], err = db.r.Decode(value, fields)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return rowValues, nil
+	panic("calling error, should use func TxnCommit")
+	//tx, err := db.db.Begin()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer tx.Rollback()
+	//
+	//rowValues := make([]map[string][]byte, len(keys))
+	//for i, key := range keys {
+	//	value, err := tx.Get(ctx, db.getRowKey(table, key))
+	//	if tikverr.IsErrNotFound(err) || value == nil {
+	//		rowValues[i] = nil
+	//	} else {
+	//		rowValues[i], err = db.r.Decode(value, fields)
+	//		if err != nil {
+	//			return nil, err
+	//		}
+	//	}
+	//}
+	//
+	//return rowValues, nil
 }
 
 func (db *txnDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
-	tx, err := db.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	it, err := tx.Iter(db.getRowKey(table, startKey), nil)
-	if err != nil {
-		return nil, err
-	}
-	defer it.Close()
-
-	rows := make([][]byte, 0, count)
-	for i := 0; i < count && it.Valid(); i++ {
-		value := append([]byte{}, it.Value()...)
-		rows = append(rows, value)
-		if err = it.Next(); err != nil {
-			return nil, err
-		}
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	res := make([]map[string][]byte, len(rows))
-	for i, row := range rows {
-		if row == nil {
-			res[i] = nil
-			continue
-		}
-
-		v, err := db.r.Decode(row, fields)
-		if err != nil {
-			return nil, err
-		}
-		res[i] = v
-	}
-
-	return res, nil
+	panic("calling error, should use func TxnCommit")
+	//tx, err := db.db.Begin()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer tx.Rollback()
+	//
+	//it, err := tx.Iter(db.getRowKey(table, startKey), nil)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer it.Close()
+	//
+	//rows := make([][]byte, 0, count)
+	//for i := 0; i < count && it.Valid(); i++ {
+	//	value := append([]byte{}, it.Value()...)
+	//	rows = append(rows, value)
+	//	if err = it.Next(); err != nil {
+	//		return nil, err
+	//	}
+	//}
+	//
+	//if err = tx.Commit(ctx); err != nil {
+	//	return nil, err
+	//}
+	//
+	//res := make([]map[string][]byte, len(rows))
+	//for i, row := range rows {
+	//	if row == nil {
+	//		res[i] = nil
+	//		continue
+	//	}
+	//
+	//	v, err := db.r.Decode(row, fields)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	res[i] = v
+	//}
+	//
+	//return res, nil
 }
 
 func (db *txnDB) Update(ctx context.Context, table string, key string, values map[string][]byte) error {
-	rowKey := db.getRowKey(table, key)
-
-	tx, err := db.beginTxn()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	row, err := tx.Get(ctx, rowKey)
-	if tikverr.IsErrNotFound(err) {
-		return nil
-	} else if row == nil {
-		return err
-	}
-
-	data, err := db.r.Decode(row, nil)
-	if err != nil {
-		return err
-	}
-
-	for field, value := range values {
-		data[field] = value
-	}
-
-	buf := db.bufPool.Get()
-	defer func() {
-		db.bufPool.Put(buf)
-	}()
-
-	buf, err = db.r.Encode(buf, data)
-	if err != nil {
-		return err
-	}
-
-	if err := tx.Set(rowKey, buf); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	panic("calling error, should use func TxnCommit")
+	return nil
 }
 
 func (db *txnDB) BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
-	tx, err := db.beginTxn()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	for i, key := range keys {
-		// TODO should we check the key exist?
-		rowData, err := db.r.Encode(nil, values[i])
-		if err != nil {
-			return err
-		}
-		if err = tx.Set(db.getRowKey(table, key), rowData); err != nil {
-			return err
-		}
-	}
-	return tx.Commit(ctx)
+	panic("calling error, should use func TxnCommit")
+	//tx, err := db.beginTxn()
+	//if err != nil {
+	//	return err
+	//}
+	//defer tx.Rollback()
+	//
+	//for i, key := range keys {
+	//	// TODO should we check the key exist?
+	//	rowData, err := db.r.Encode(nil, values[i])
+	//	if err != nil {
+	//		return err
+	//	}
+	//	if err = tx.Set(db.getRowKey(table, key), rowData); err != nil {
+	//		return err
+	//	}
+	//}
+	//return tx.Commit(ctx)
+	//return nil
 }
 
 func (db *txnDB) Insert(ctx context.Context, table string, key string, values map[string][]byte) error {

@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package taas_proto;
-
+option cc_generic_services = true;
 option go_package = "./taas_proto";
 
 import "transaction.proto";

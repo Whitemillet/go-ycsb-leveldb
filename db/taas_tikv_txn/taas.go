@@ -1,11 +1,9 @@
-package taas_tikv
+package taas_tikv_txn
 
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"fmt"
-	"io/ioutil"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-ycsb/db/taas"
 	tikverr "github.com/tikv/client-go/v2/error"
@@ -13,17 +11,17 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+)
 
+import (
+	"context"
 	"github.com/golang/protobuf/proto"
-	zmq "github.com/pebbe/zmq4"
-	"github.com/pingcap/errors"
+
 	"github.com/pingcap/go-ycsb/db/taas_proto"
-	tikverr "github.com/tikv/client-go/v2/error"
 )
 
 func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	for taas.InitOk == 0 {
-
 		time.Sleep(50)
 	}
 	t1 := time.Now().UnixNano()
@@ -121,6 +119,7 @@ func (db *txnDB) TxnCommit(ctx context.Context, table string, keys []string, val
 	taas.TaasTxnCH <- taas.TaasTxn{GzipedTransaction: GzipedTransaction}
 
 	result, ok := <-(taas.ChanList[txnId%uint64(taas.ClientNum)])
+	//fmt.Println("Receive From Taas")
 	t2 := uint64(time.Now().UnixNano() - t1)
 	taas.TotalLatency += t2
 	//append(latency, t2)

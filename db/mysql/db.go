@@ -87,7 +87,7 @@ type mysqlDB struct {
 	bufPool *util.BufPool
 }
 
-func (db *mysqlDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (db *mysqlDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }

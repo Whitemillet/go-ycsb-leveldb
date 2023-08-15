@@ -68,7 +68,7 @@ type boltDB struct {
 	bufPool *util.BufPool
 }
 
-func (db *boltDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (db *boltDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }

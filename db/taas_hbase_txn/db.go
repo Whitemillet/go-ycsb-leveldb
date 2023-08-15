@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package taas_hbase
+package taas_hbase_txn
 
 import (
 	"fmt"
@@ -20,32 +20,24 @@ import (
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
 )
 
-//const (
-//	tikvPD = "tikv.pd"
-//	// raw, txn, or coprocessor
-//	tikvType       = "tikv.type"
-//	tikvConnCount  = "tikv.conncount"
-//	tikvBatchSize  = "tikv.batchsize"
-//	tikvAPIVersion = "tikv.apiversion"
-//)
+const (
+	tikvPD = "tikv.pd"
+	// raw, txn, or coprocessor
+	tikvType       = "tikv.type"
+	tikvConnCount  = "tikv.conncount"
+	tikvBatchSize  = "tikv.batchsize"
+	tikvAPIVersion = "tikv.apiversion"
+)
 
-type taasHbaseCreator struct {
+type taasHbaseTxnCreator struct {
 }
 
-func (c taas_hbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
-	config.UpdateGlobal(func(c *config.Config) {
-		c.TiKVClient.GrpcConnectionCount = p.GetUint(tikvConnCount, 128)
-		c.TiKVClient.MaxBatchSize = p.GetUint(tikvBatchSize, 128)
-	})
-  
-	tp := p.GetString(tikvType, "txn")
-  
-  //func (c taasHbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
+func (c taasHbaseTxnCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 	//config.UpdateGlobal(func(c *config.Config) {
 	//	c.TiKVClient.GrpcConnectionCount = p.GetUint(tikvConnCount, 128)
 	//	c.TiKVClient.MaxBatchSize = p.GetUint(tikvBatchSize, 128)
 	//})
-	//
+
 	//tp := p.GetString(tikvType, "raw")
 	fmt.Println("=====================  Taas - HBase  ============================")
 	//switch tp {
@@ -61,5 +53,5 @@ func (c taas_hbaseCreator) Create(p *properties.Properties) (ycsb.DB, error) {
 }
 
 func init() {
-	ycsb.RegisterDBCreator("taas_hbase", taasHbaseCreator{})
+	ycsb.RegisterDBCreator("taas_hbase_txn", taasHbaseTxnCreator{})
 }

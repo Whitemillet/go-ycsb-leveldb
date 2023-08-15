@@ -50,7 +50,7 @@ type spannerDB struct {
 	verbose bool
 }
 
-func (db *spannerDB) CommitToTaas(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
+func (db *spannerDB) TxnCommit(ctx context.Context, table string, keys []string, values []map[string][]byte) error {
 	//TODO implement me
 	panic("implement me")
 }

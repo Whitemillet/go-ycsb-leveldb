@@ -11,18 +11,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tikv
+package tikv_txn
 
 import (
 	"context"
 	"fmt"
 	"github.com/pingcap/go-ycsb/db/taas"
+	"github.com/tikv/client-go/v2/txnkv"
+	"github.com/tikv/client-go/v2/txnkv/transaction"
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"github.com/tikv/client-go/v2/txnkv"
-	"github.com/tikv/client-go/v2/txnkv/transaction"
 
 	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/util"

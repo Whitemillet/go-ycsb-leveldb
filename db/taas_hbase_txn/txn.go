@@ -1,4 +1,4 @@
-package taas_hbase
+package taas_hbase_txn
 
 import (
 	"fmt"

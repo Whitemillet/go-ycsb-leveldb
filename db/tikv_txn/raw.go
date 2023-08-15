@@ -11,18 +11,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package taas_tikv
+package tikv_txn
 
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/magiconair/properties"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-ycsb/pkg/util"
 	"github.com/pingcap/go-ycsb/pkg/ycsb"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/tikv/client-go/v2/rawkv"
-	"strings"
 )
 
 type rawDB struct {
